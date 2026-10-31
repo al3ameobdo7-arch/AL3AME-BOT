@@ -34,7 +34,7 @@ export function getTextMessage(message) {
 }
 
 export function getSenderNumber(jid = '') {
-  return jid.split('@')[0].split(':')[0].replace(/\\D/g, '');
+  return jid.split('@')[0].split(':')[0].replace(/\D/g, '');
 }
 
 export function isGroupJid(jid = '') {
