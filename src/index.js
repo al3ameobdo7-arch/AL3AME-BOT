@@ -6,7 +6,7 @@ import qrcode from 'qrcode-terminal';
 import { Boom } from '@hapi/boom';
 import { config } from './config.js';
 import { logger } from './logger.js';
-import { getTextMessage, isGroupJid } from './utils.js';
+import { getTextMessage } from './utils.js';
 import { handleCommand } from './commands.js';
 
 let isConnecting = false;
@@ -24,7 +24,8 @@ async function connectWhatsApp() {
       logger,
       printQRInTerminal: false,
       markOnlineOnConnect: false,
-      syncFullHistory: false
+      syncFullHistory: false,
+      getMessage: async () => undefined
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -33,27 +34,38 @@ async function connectWhatsApp() {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        logger.info('Scan this QR using WhatsApp > Linked devices > Link a device');
+        logger.info('A WhatsApp pairing QR was generated. Scan it from Linked devices.');
         qrcode.generate(qr, { small: true });
       }
 
+      if (connection === 'connecting') {
+        logger.info('Connecting to WhatsApp...');
+      }
+
       if (connection === 'open') {
-        logger.info(`${config.botName} connected to WhatsApp successfully.`);
+        clearTimeout(reconnectTimer);
         isConnecting = false;
+        logger.info(`${config.botName} connected to WhatsApp successfully.`);
       }
 
       if (connection === 'close') {
         isConnecting = false;
-        const statusCode = new Boom(lastDisconnect?.error).output?.statusCode;
+        const statusCode =
+          lastDisconnect?.error?.output?.statusCode ||
+          new Boom(lastDisconnect?.error).output.statusCode;
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
         logger.warn({ statusCode, shouldReconnect }, 'WhatsApp connection closed');
 
         if (shouldReconnect) {
           clearTimeout(reconnectTimer);
-          reconnectTimer = setTimeout(connectWhatsApp, 3000);
+          reconnectTimer = setTimeout(() => {
+            connectWhatsApp().catch((error) => {
+              logger.error({ error }, 'Reconnect attempt failed');
+            });
+          }, 3000);
         } else {
-          logger.error('WhatsApp session logged out. Remove the auth folder and pair again.');
+          logger.error('WhatsApp session logged out. Delete the auth folder only if you intend to pair again.');
         }
       }
     });
@@ -71,26 +83,42 @@ async function connectWhatsApp() {
         if (!text) continue;
 
         try {
-          await handleCommand(sock, message, text, message.key.participant || chatId);
+          await handleCommand(
+            sock,
+            message,
+            text,
+            message.key.participant || message.key.remoteJid
+          );
         } catch (error) {
           logger.error({ error }, 'Command handler failed');
-          await sock.sendMessage(chatId, {
-            text: 'حدث خطأ أثناء تنفيذ الأمر. حاول مرة أخرى.'
-          }, { quoted: message });
+          try {
+            await sock.sendMessage(
+              chatId,
+              { text: 'حدث خطأ أثناء تنفيذ الأمر. حاول مرة أخرى.' },
+              { quoted: message }
+            );
+          } catch (sendError) {
+            logger.error({ sendError }, 'Could not send command error reply');
+          }
         }
       }
     });
-
   } catch (error) {
     isConnecting = false;
     logger.error({ error }, 'Could not start WhatsApp connection');
     clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(connectWhatsApp, 5000);
+    reconnectTimer = setTimeout(() => connectWhatsApp(), 5000);
   }
 }
 
-process.on('unhandledRejection', (reason) => logger.error({ reason }, 'Unhandled rejection'));
-process.on('uncaughtException', (error) => logger.error({ error }, 'Uncaught exception'));
+process.on('unhandledRejection', (reason) => {
+  logger.error({ reason }, 'Unhandled promise rejection');
+});
+
+process.on('uncaughtException', (error) => {
+  logger.fatal({ error }, 'Uncaught exception');
+  process.exit(1);
+});
 
 logger.info(`Starting ${config.botName}...`);
 connectWhatsApp();
