@@ -1,6 +1,6 @@
 # AL3AME BOT
 
-AL3AME BOT is a WhatsApp automation starter built with Node.js 20+ and Baileys.
+AL3AME BOT is a WhatsApp automation worker built with Node.js 20+ and Baileys.
 
 ## Current features (v1.1.0)
 - WhatsApp QR pairing
@@ -11,16 +11,30 @@ AL3AME BOT is a WhatsApp automation starter built with Node.js 20+ and Baileys.
 - Structured logs with Pino
 - Basic automated tests for message utilities
 
-## Requirements
-- Node.js 20 or later
-- A separate WhatsApp test number is recommended
-- Persistent storage for the WhatsApp authentication folder when hosted in the cloud
+## Deploy on Render (recommended setup)
+
+This repository includes a `render.yaml` Blueprint for a **Background Worker** with a persistent disk.
+
+1. Sign in to Render and choose **New > Blueprint**.
+2. Connect GitHub and select `al3ameobdo7-arch/AL3AME-BOT`.
+3. Render reads `render.yaml`. Review the worker and disk settings, then apply.
+4. Open the created worker and go to **Environment**.
+5. Set `OWNER_NUMBER` to your WhatsApp number in international digits only (example format: `2126XXXXXXXX`).
+6. Confirm these values exist:
+   - `BOT_NAME=AL3AME BOT`
+   - `PREFIX=.`
+   - `AUTH_DIR=/var/data/auth_info_baileys`
+   - `LOG_LEVEL=info`
+7. Save and deploy. Open **Logs** for the worker and scan the QR code using WhatsApp > Linked devices > Link a device.
+
+**Important:** Persistent disks require a paid Render service. The disk in this Blueprint is mounted at `/var/data`; the bot's WhatsApp session is stored at `/var/data/auth_info_baileys`. Do not remove the disk or change `AUTH_DIR` after pairing unless you intend to create a new session.
 
 ## Run locally
-1. Install Node.js 20+.
+
+1. Install Node.js 20 or later.
 2. Clone or download this repository.
 3. Copy `.env.example` to `.env`.
-4. Set `OWNER_NUMBER` to the owner's full international number using digits only (example format: `2126XXXXXXXX`).
+4. Set `OWNER_NUMBER` to the owner's full international number using digits only.
 5. Install and run:
 
 ```bash
@@ -31,17 +45,8 @@ npm start
 
 6. Scan the QR code using WhatsApp > Linked devices > Link a device.
 
-## Railway deployment
-1. Deploy this repository as a Railway service.
-2. Set the start command to `npm start`.
-3. Add the variables from `.env.example` in the Railway service Variables tab.
-4. Add a Railway Volume mounted at `/data`.
-5. Set `AUTH_DIR=/data/auth_info_baileys` in the service variables.
-6. Deploy and inspect the private service logs for the pairing QR.
-
-Do not mount a volume over the application root; use a dedicated data path such as `/data`. Never share pairing QR codes or authentication files.
-
 ## Commands
+
 | Command | Description |
 |---|---|
 | `.menu` | List commands |
@@ -53,11 +58,10 @@ Do not mount a volume over the application root; use a dedicated data path such 
 
 Change the command prefix with the `PREFIX` environment variable.
 
-## Environment variables
-See `.env.example`. Never commit the real `.env` file or the authentication folder.
-
 ## Security and limitations
+
 - Keep `.env`, QR codes, and `auth_info_baileys/` private.
+- Never paste WhatsApp session files or QR codes into GitHub, chat, or public logs.
 - Do not use the bot for spam or unsolicited bulk messaging.
 - Baileys is an unofficial WhatsApp Web client, is not affiliated with WhatsApp, and may carry account or service risks. Follow WhatsApp's terms.
 - This is an MVP foundation, not a production-certified service. Test pairing, reconnects, and persistent storage before relying on it.
