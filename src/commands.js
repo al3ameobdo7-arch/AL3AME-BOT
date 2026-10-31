@@ -1,39 +1,85 @@
 import { config } from './config.js';
+import { getSenderNumber, isGroupJid } from './utils.js';
+
+const commandList = [
+  ['menu', 'Show available commands'],
+  ['ping', 'Check bot response'],
+  ['status', 'Show runtime status'],
+  ['owner', 'Show the bot owner'],
+  ['id', 'Show this chat ID'],
+  ['info', 'Show bot information']
+];
+
+function makeMenu() {
+  const lines = commandList.map(([name, description]) =>
+    `${config.prefix}${name.padEnd(8)} — ${description}`
+  );
+
+  return [
+    `╭━━━〔 ${config.botName} 〕━━━╮`,
+    '',
+    ...lines,
+    '',
+    '╰━━━━━━━━━━━━━━━━━━━━╯'
+  ].join('\\n');
+}
 
 export async function handleCommand(sock, message, text, senderJid) {
   const prefix = config.prefix;
   if (!text.startsWith(prefix)) return;
 
-  const [rawCommand] = text.slice(prefix.length).trim().split(/\s+/);
-  const command = (rawCommand || '').toLowerCase();
+  const input = text.slice(prefix.length).trim();
+  if (!input) return;
+
+  const [rawCommand] = input.split(/\\s+/);
+  const command = rawCommand.toLowerCase();
   const chatId = message.key.remoteJid;
+  const senderNumber = getSenderNumber(senderJid || message.key.participant || chatId);
 
   switch (command) {
-    case 'ping':
-      await sock.sendMessage(chatId, { text: '🏓 Pong! AL3AME BOT is online.' }, { quoted: message });
-      break;
-
     case 'menu':
     case 'help':
+      await sock.sendMessage(chatId, { text: makeMenu() }, { quoted: message });
+      break;
+
+    case 'ping':
+      await sock.sendMessage(
+        chatId,
+        { text: '🏓 Pong! AL3AME BOT is online.' },
+        { quoted: message }
+      );
+      break;
+
+    case 'status': {
+      const memory = process.memoryUsage();
+      const memoryMb = Math.round(memory.rss / 1024 / 1024);
+      const uptimeSeconds = Math.floor(process.uptime());
+      const hours = Math.floor(uptimeSeconds / 3600);
+      const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+      const seconds = uptimeSeconds % 60;
+
       await sock.sendMessage(chatId, {
         text: [
-          `╭━━━〔 ${config.botName} 〕━━━╮`,
-          '',
-          `${prefix}ping  — Check bot status`,
-          `${prefix}menu  — Show this menu`,
-          `${prefix}owner — Contact the owner`,
-          `${prefix}info  — Bot information`,
-          '',
-          '╰━━━━━━━━━━━━━━━━━━━━╯'
-        ].join('\n')
+          '📊 AL3AME BOT STATUS',
+          'Status: Running',
+          `Uptime: ${hours}h ${minutes}m ${seconds}s`,
+          `Memory: ${memoryMb} MB`,
+          `Node.js: ${process.version}`
+        ].join('\\n')
       }, { quoted: message });
       break;
+    }
 
     case 'owner': {
       if (!config.ownerNumber) {
-        await sock.sendMessage(chatId, { text: 'Owner number is not configured yet.' }, { quoted: message });
+        await sock.sendMessage(
+          chatId,
+          { text: 'Owner number is not configured. Set OWNER_NUMBER in environment variables.' },
+          { quoted: message }
+        );
         break;
       }
+
       await sock.sendMessage(chatId, {
         text: `👑 Bot owner: @${config.ownerNumber}`,
         mentions: [`${config.ownerNumber}@s.whatsapp.net`]
@@ -41,9 +87,20 @@ export async function handleCommand(sock, message, text, senderJid) {
       break;
     }
 
+    case 'id':
+      await sock.sendMessage(chatId, {
+        text: `Chat ID: ${chatId}\\nType: ${isGroupJid(chatId) ? 'Group' : 'Private'}`
+      }, { quoted: message });
+      break;
+
     case 'info':
       await sock.sendMessage(chatId, {
-        text: `🤖 ${config.botName}\nVersion: 1.0.0\nRuntime: Node.js\nLibrary: Baileys`
+        text: [
+          `🤖 ${config.botName}`,
+          'Version: 1.1.0',
+          'Runtime: Node.js',
+          'WhatsApp library: Baileys'
+        ].join('\\n')
       }, { quoted: message });
       break;
 
