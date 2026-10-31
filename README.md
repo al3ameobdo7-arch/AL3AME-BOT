@@ -1,54 +1,64 @@
 # AL3AME BOT
 
-Starter MVP for a WhatsApp bot using Node.js 20+ and Baileys 6.7.24 (legacy stable line).
+AL3AME BOT is a WhatsApp automation starter built with Node.js 20+ and Baileys.
 
-## Included
-- WhatsApp QR login
-- Persistent local session folder (`auth_info_baileys/`)
-- Automatic reconnect (except after logout)
-- `.ping`, `.menu`, `.owner`, `.info` commands
-- Owner-only command example
-- Environment-based configuration
+## Current features (v1.1.0)
+- WhatsApp QR pairing
+- Multi-file authentication state
+- Automatic reconnect after temporary disconnections
+- Commands: `.menu`, `.ping`, `.status`, `.owner`, `.id`, `.info`
+- Common message wrapper and caption text extraction
+- Structured logs with Pino
+- Basic automated tests for message utilities
 
 ## Requirements
 - Node.js 20 or later
 - A separate WhatsApp test number is recommended
-- For cloud hosting, attach persistent storage at the project root so `auth_info_baileys/` survives restarts.
+- Persistent storage for the WhatsApp authentication folder when hosted in the cloud
 
 ## Run locally
 1. Install Node.js 20+.
-2. Extract this project.
+2. Clone or download this repository.
 3. Copy `.env.example` to `.env`.
-4. Edit `.env` and set `OWNER_NUMBER` using country code and digits only, e.g. `2126XXXXXXXX`.
-5. Run:
+4. Set `OWNER_NUMBER` to the owner's full international number using digits only (example format: `2126XXXXXXXX`).
+5. Install and run:
 
 ```bash
 npm install
+npm test
 npm start
 ```
 
-6. Scan the QR code from WhatsApp > Linked devices > Link a device.
+6. Scan the QR code using WhatsApp > Linked devices > Link a device.
 
 ## Railway deployment
-1. Create a Railway project and deploy this GitHub repository.
-2. Set the service start command to `npm start` (or leave the detected start command).
-3. Add environment variables from `.env.example`.
-4. Attach a persistent volume mounted at the project root (or update `AUTH_DIR` in `src/config.js` to the mounted path).
-5. Check the deployment logs and scan the QR code shown there.
+1. Deploy this repository as a Railway service.
+2. Set the start command to `npm start`.
+3. Add the variables from `.env.example` in the Railway service Variables tab.
+4. Add a Railway Volume mounted at `/data`.
+5. Set `AUTH_DIR=/data/auth_info_baileys` in the service variables.
+6. Deploy and inspect the private service logs for the pairing QR.
 
-**Important:** QR display in hosted logs may be inconvenient or unsupported by some log viewers. For production, implement a protected pairing flow rather than exposing QR codes publicly. Never share the QR code or session folder.
+Do not mount a volume over the application root; use a dedicated data path such as `/data`. Never share pairing QR codes or authentication files.
 
 ## Commands
-- `.menu`
-- `.ping`
-- `.owner`
-- `.info`
+| Command | Description |
+|---|---|
+| `.menu` | List commands |
+| `.ping` | Check bot response |
+| `.status` | Show uptime and memory usage |
+| `.owner` | Mention the configured owner |
+| `.id` | Show the current chat ID and type |
+| `.info` | Show bot information |
 
-## Security
-- Do not commit `.env`, `auth_info_baileys/`, or any session credentials.
-- Do not expose QR codes in public logs.
-- Do not use this bot for spam, bulk unsolicited messaging, or automated abuse.
-- Baileys is an unofficial WhatsApp Web client and is not affiliated with WhatsApp. Use at your own risk and follow WhatsApp's terms.
+Change the command prefix with the `PREFIX` environment variable.
 
-## Notes
-This is a working starter scaffold, not a finished production system. It does not yet include an admin dashboard, database, AI provider, or plugin marketplace.
+## Environment variables
+See `.env.example`. Never commit the real `.env` file or the authentication folder.
+
+## Security and limitations
+- Keep `.env`, QR codes, and `auth_info_baileys/` private.
+- Do not use the bot for spam or unsolicited bulk messaging.
+- Baileys is an unofficial WhatsApp Web client, is not affiliated with WhatsApp, and may carry account or service risks. Follow WhatsApp's terms.
+- This is an MVP foundation, not a production-certified service. Test pairing, reconnects, and persistent storage before relying on it.
+- AI integration, plugin management, database features, and a protected web dashboard are not included yet.
