@@ -12,16 +12,16 @@ const commandList = [
 
 function makeMenu() {
   const lines = commandList.map(([name, description]) =>
-    `${config.prefix}${name.padEnd(8)} — ${description}`
+    config.prefix + name.padEnd(8) + ' — ' + description
   );
 
   return [
-    `╭━━━〔 ${config.botName} 〕━━━╮`,
+    '╭━━━〔 ' + config.botName + ' 〕━━━╮',
     '',
     ...lines,
     '',
     '╰━━━━━━━━━━━━━━━━━━━━╯'
-  ].join('\\n');
+  ].join('\n');
 }
 
 export async function handleCommand(sock, message, text, senderJid) {
@@ -31,7 +31,7 @@ export async function handleCommand(sock, message, text, senderJid) {
   const input = text.slice(prefix.length).trim();
   if (!input) return;
 
-  const [rawCommand] = input.split(/\\s+/);
+  const [rawCommand] = input.split(/\s+/);
   const command = rawCommand.toLowerCase();
   const chatId = message.key.remoteJid;
   const senderNumber = getSenderNumber(senderJid || message.key.participant || chatId);
@@ -43,16 +43,11 @@ export async function handleCommand(sock, message, text, senderJid) {
       break;
 
     case 'ping':
-      await sock.sendMessage(
-        chatId,
-        { text: '🏓 Pong! AL3AME BOT is online.' },
-        { quoted: message }
-      );
+      await sock.sendMessage(chatId, { text: '🏓 Pong! AL3AME BOT is online.' }, { quoted: message });
       break;
 
     case 'status': {
-      const memory = process.memoryUsage();
-      const memoryMb = Math.round(memory.rss / 1024 / 1024);
+      const memoryMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
       const uptimeSeconds = Math.floor(process.uptime());
       const hours = Math.floor(uptimeSeconds / 3600);
       const minutes = Math.floor((uptimeSeconds % 3600) / 60);
@@ -62,51 +57,50 @@ export async function handleCommand(sock, message, text, senderJid) {
         text: [
           '📊 AL3AME BOT STATUS',
           'Status: Running',
-          `Uptime: ${hours}h ${minutes}m ${seconds}s`,
-          `Memory: ${memoryMb} MB`,
-          `Node.js: ${process.version}`
-        ].join('\\n')
+          'Uptime: ' + hours + 'h ' + minutes + 'm ' + seconds + 's',
+          'Memory: ' + memoryMb + ' MB',
+          'Node.js: ' + process.version
+        ].join('\n')
       }, { quoted: message });
       break;
     }
 
     case 'owner': {
       if (!config.ownerNumber) {
-        await sock.sendMessage(
-          chatId,
-          { text: 'Owner number is not configured. Set OWNER_NUMBER in environment variables.' },
-          { quoted: message }
-        );
+        await sock.sendMessage(chatId, {
+          text: 'Owner number is not configured. Set OWNER_NUMBER in environment variables.'
+        }, { quoted: message });
         break;
       }
 
       await sock.sendMessage(chatId, {
-        text: `👑 Bot owner: @${config.ownerNumber}`,
-        mentions: [`${config.ownerNumber}@s.whatsapp.net`]
+        text: '👑 Bot owner: @' + config.ownerNumber,
+        mentions: [config.ownerNumber + '@s.whatsapp.net']
       }, { quoted: message });
       break;
     }
 
     case 'id':
       await sock.sendMessage(chatId, {
-        text: `Chat ID: ${chatId}\\nType: ${isGroupJid(chatId) ? 'Group' : 'Private'}`
+        text: 'Chat ID: ' + chatId + '\nType: ' + (isGroupJid(chatId) ? 'Group' : 'Private')
       }, { quoted: message });
       break;
 
     case 'info':
       await sock.sendMessage(chatId, {
         text: [
-          `🤖 ${config.botName}`,
+          '🤖 ' + config.botName,
           'Version: 1.1.0',
           'Runtime: Node.js',
-          'WhatsApp library: Baileys'
-        ].join('\\n')
+          'WhatsApp library: Baileys',
+          'Sender: ' + (senderNumber || 'Unknown')
+        ].join('\n')
       }, { quoted: message });
       break;
 
     default:
       await sock.sendMessage(chatId, {
-        text: `Unknown command. Send ${prefix}menu to see available commands.`
+        text: 'Unknown command. Send ' + prefix + 'menu to see available commands.'
       }, { quoted: message });
   }
 }
