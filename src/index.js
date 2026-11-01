@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState
@@ -118,6 +119,22 @@ process.on('unhandledRejection', (reason) => {
 process.on('uncaughtException', (error) => {
   logger.fatal({ error }, 'Uncaught exception');
   process.exit(1);
+});
+
+
+const port = Number(process.env.PORT || 3000);
+const healthServer = createServer((req, res) => {
+  if (req.url === '/health' || req.url === '/') {
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ status: 'ok', service: config.botName }));
+    return;
+  }
+  res.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify({ error: 'Not found' }));
+});
+
+healthServer.listen(port, '0.0.0.0', () => {
+  logger.info({ port }, 'HTTP health server listening');
 });
 
 logger.info(`Starting ${config.botName}...`);
