@@ -26,8 +26,11 @@ export function getTextMessage(message) {
     m.imageMessage?.caption ||
     m.videoMessage?.caption ||
     m.documentMessage?.caption ||
-    m.buttonsResponseMessage?.selectedDisplayText ||
+    m.listResponseMessage?.singleSelectReply?.selectedRowId ||
     m.listResponseMessage?.title ||
+    m.buttonsResponseMessage?.selectedButtonId ||
+    m.buttonsResponseMessage?.selectedDisplayText ||
+    m.templateButtonReplyMessage?.selectedId ||
     m.templateButtonReplyMessage?.selectedDisplayText ||
     ''
   ).trim();
