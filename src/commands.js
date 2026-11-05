@@ -16,6 +16,7 @@ async function sendMenu(sock, chatId, message) {
     title: '╭━━〔 AL3AME BOT 〕━━╮',
     footer: 'AL3AME BOT • اختر أمراً للمتابعة',
     buttonText: 'عرض الأوامر',
+    listType: 1,
     sections: [{
       title: 'الخدمات المتاحة',
       rows: commandList.map(([name, description]) => ({
