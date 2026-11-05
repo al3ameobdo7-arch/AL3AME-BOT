@@ -2,35 +2,28 @@ import { config } from './config.js';
 import { getSenderNumber, isGroupJid } from './utils.js';
 
 const commandList = [
-  ['menu', 'Show available commands'],
-  ['ping', 'Check bot response'],
-  ['status', 'Show runtime status'],
-  ['owner', 'Show the bot owner'],
-  ['id', 'Show this chat ID'],
-  ['info', 'Show bot information']
+  ['menu', 'القائمة الرئيسية'],
+  ['ping', 'اختبار استجابة البوت'],
+  ['status', 'حالة التشغيل والذاكرة'],
+  ['owner', 'معلومات مالك البوت'],
+  ['id', 'معرّف المحادثة'],
+  ['info', 'معلومات البوت']
 ];
 
 async function sendMenu(sock, chatId, message) {
-  await sock.sendMessage(chatId, {
-    text: 'مرحبا بك في ' + config.botName + '! 👋\nاختار الخدمة اللي بغيتي من القائمة:',
-    title: '╭━━〔 AL3AME BOT 〕━━╮',
-    footer: 'AL3AME BOT • اختر أمراً للمتابعة',
-    buttonText: 'عرض الأوامر',
-    listType: 1,
-    sections: [{
-      title: 'الخدمات المتاحة',
-      rows: commandList.map(([name, description]) => ({
-        title: name === 'menu' ? '📋 القائمة الرئيسية'
-          : name === 'ping' ? '🏓 اختبار الاستجابة'
-          : name === 'status' ? '📊 حالة البوت'
-          : name === 'owner' ? '👑 مالك البوت'
-          : name === 'id' ? '🆔 معلومات المحادثة'
-          : 'ℹ️ معلومات البوت',
-        description,
-        rowId: config.prefix + name
-      }))
-    }]
-  }, { quoted: message });
+  const lines = [
+    `╭━━〔 ${config.botName} 〕━━╮`,
+    '',
+    'مرحباً بك! 👋 اختار الأمر اللي بغيتي:',
+    '',
+    ...commandList.map(([name, description]) => `• ${config.prefix}${name} — ${description}`),
+    '',
+    '╰━━━━━━━━━━━━━━━━━━╯'
+  ];
+
+  // Plain text is the compatibility baseline: it works even when WhatsApp
+  // clients hide or do not support legacy interactive list messages.
+  await sock.sendMessage(chatId, { text: lines.join('\n') }, { quoted: message });
 }
 
 export async function handleCommand(sock, message, text, senderJid) {
@@ -61,33 +54,26 @@ export async function handleCommand(sock, message, text, senderJid) {
       const hours = Math.floor(uptimeSeconds / 3600);
       const minutes = Math.floor((uptimeSeconds % 3600) / 60);
       const seconds = uptimeSeconds % 60;
-
       await sock.sendMessage(chatId, {
-        text: [
-          '📊 AL3AME BOT STATUS',
-          'Status: Running',
+        text: ['📊 AL3AME BOT STATUS', 'Status: Running',
           'Uptime: ' + hours + 'h ' + minutes + 'm ' + seconds + 's',
-          'Memory: ' + memoryMb + ' MB',
-          'Node.js: ' + process.version
-        ].join('\n')
+          'Memory: ' + memoryMb + ' MB', 'Node.js: ' + process.version].join('\n')
       }, { quoted: message });
       break;
     }
 
-    case 'owner': {
+    case 'owner':
       if (!config.ownerNumber) {
         await sock.sendMessage(chatId, {
-          text: 'Owner number is not configured. Set OWNER_NUMBER in environment variables.'
+          text: 'رقم المالك غير مضبوط. أضف OWNER_NUMBER في متغيرات Railway بصيغة دولية بدون +.'
         }, { quoted: message });
         break;
       }
-
       await sock.sendMessage(chatId, {
         text: '👑 Bot owner: @' + config.ownerNumber,
         mentions: [config.ownerNumber + '@s.whatsapp.net']
       }, { quoted: message });
       break;
-    }
 
     case 'id':
       await sock.sendMessage(chatId, {
@@ -97,19 +83,14 @@ export async function handleCommand(sock, message, text, senderJid) {
 
     case 'info':
       await sock.sendMessage(chatId, {
-        text: [
-          '🤖 ' + config.botName,
-          'Version: 1.1.0',
-          'Runtime: Node.js',
-          'WhatsApp library: Baileys',
-          'Sender: ' + (senderNumber || 'Unknown')
-        ].join('\n')
+        text: ['🤖 ' + config.botName, 'Version: 1.2.0', 'Runtime: Node.js',
+          'WhatsApp library: Baileys', 'Sender: ' + (senderNumber || 'Unknown')].join('\n')
       }, { quoted: message });
       break;
 
     default:
       await sock.sendMessage(chatId, {
-        text: 'Unknown command. Send ' + prefix + 'menu to see available commands.'
+        text: 'أمر غير معروف. أرسل ' + prefix + 'menu لعرض الأوامر.'
       }, { quoted: message });
   }
 }

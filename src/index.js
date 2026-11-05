@@ -14,13 +14,44 @@ import { handleCommand } from './commands.js';
 let isConnecting = false;
 let reconnectTimer;
 
+function cleanJid(jid = '') {
+  return String(jid).split(':')[0];
+}
+
+async function resolvePnJid(sock, jid) {
+  if (!jid) return '';
+  const clean = cleanJid(jid);
+  if (clean.endsWith('@s.whatsapp.net')) return clean;
+  if (!clean.endsWith('@lid')) return clean;
+
+  try {
+    const mapped = await sock.signalRepository?.lidMapping?.getPNForLID(clean);
+    return mapped ? cleanJid(mapped) : clean;
+  } catch (error) {
+    logger.debug({ error }, 'Could not resolve WhatsApp LID to PN');
+    return clean;
+  }
+}
+
+async function isOwnChat(sock, chatId) {
+  const ownIds = [sock.user?.id, sock.user?.lid].filter(Boolean).map(cleanJid);
+  const chat = cleanJid(chatId);
+  if (ownIds.some((jid) => areJidsSameUser(chat, jid))) return true;
+
+  const [chatResolved, ...ownResolved] = await Promise.all([
+    resolvePnJid(sock, chat),
+    ...ownIds.map((jid) => resolvePnJid(sock, jid))
+  ]);
+
+  return ownResolved.some((jid) => areJidsSameUser(chatResolved, jid));
+}
+
 async function connectWhatsApp() {
   if (isConnecting) return;
   isConnecting = true;
 
   try {
     const { state, saveCreds } = await useMultiFileAuthState(config.authDir);
-
     const sock = makeWASocket({
       auth: state,
       logger,
@@ -31,93 +62,74 @@ async function connectWhatsApp() {
     });
 
     let pairingCodeRequested = false;
-
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
-      // Baileys emits the QR update when the socket is ready for pairing.
-      // In numeric-code mode, use that event as the trigger but do not print the QR.
-      if (
-        qr &&
-        config.pairingNumber &&
-        !state.creds.registered &&
-        !pairingCodeRequested
-      ) {
+      if (qr && config.pairingNumber && !state.creds.registered && !pairingCodeRequested) {
         pairingCodeRequested = true;
         try {
           const code = await sock.requestPairingCode(config.pairingNumber);
           logger.info({ pairingCode: code }, 'WhatsApp pairing code generated. Enter it in Linked devices > Link with phone number.');
         } catch (error) {
           pairingCodeRequested = false;
-          logger.error({ error }, 'Could not generate WhatsApp pairing code. Check PAIRING_NUMBER and try again.');
+          logger.error({ error }, 'Could not generate WhatsApp pairing code. Check PAIRING_NUMBER.');
         }
       } else if (qr && !config.pairingNumber) {
         logger.info('A WhatsApp pairing QR was generated. Scan it from Linked devices.');
         qrcode.generate(qr, { small: true });
       }
 
-      if (connection === 'connecting') {
-        logger.info('Connecting to WhatsApp...');
-      }
+      if (connection === 'connecting') logger.info('Connecting to WhatsApp...');
 
       if (connection === 'open') {
         clearTimeout(reconnectTimer);
         isConnecting = false;
-        logger.info(`${config.botName} connected to WhatsApp successfully.`);
+        logger.info({ ownJid: sock.user?.id, ownLid: sock.user?.lid }, `${config.botName} connected to WhatsApp successfully.`);
       }
 
       if (connection === 'close') {
         isConnecting = false;
-        const statusCode =
-          lastDisconnect?.error?.output?.statusCode ||
+        const statusCode = lastDisconnect?.error?.output?.statusCode ||
           new Boom(lastDisconnect?.error).output.statusCode;
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-
         logger.warn({ statusCode, shouldReconnect }, 'WhatsApp connection closed');
 
         if (shouldReconnect) {
           clearTimeout(reconnectTimer);
           reconnectTimer = setTimeout(() => {
-            connectWhatsApp().catch((error) => {
-              logger.error({ error }, 'Reconnect attempt failed');
-            });
+            connectWhatsApp().catch((error) => logger.error({ error }, 'Reconnect attempt failed'));
           }, 3000);
         } else {
-          logger.error('WhatsApp session logged out. Delete the auth folder only if you intend to pair again.');
+          logger.error('WhatsApp session logged out. Re-pair only if intended.');
         }
       }
     });
 
     const processedMessageIds = new Set();
-
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
       if (type !== 'notify' && type !== 'append') return;
 
       for (const message of messages) {
         if (!message.message) continue;
-
         const chatId = message.key.remoteJid;
-        const isSelfChat =
-          Boolean(message.key.fromMe) &&
-          Boolean(sock.user?.id) &&
-          areJidsSameUser(chatId, sock.user.id);
-
-        // Only handle this account's own messages in the dedicated self-chat.
-        // Baileys can emit those as "append", so accept recent self-chat appends
-        // while ignoring old history entries and all appends from other chats.
-        if (message.key.fromMe && !isSelfChat) continue;
-        if (type === 'append' && !isSelfChat) continue;
         if (!chatId || chatId === 'status@broadcast') continue;
+
+        const fromMe = Boolean(message.key.fromMe);
+        const ownChat = fromMe ? await isOwnChat(sock, chatId) : false;
+
+        // Never execute sent messages in another person's chat.
+        if (fromMe && !ownChat) continue;
+        // WhatsApp may emit self-chat outgoing messages as append events.
+        if (type === 'append' && !ownChat) continue;
 
         const messageId = message.key.id;
         if (messageId && processedMessageIds.has(messageId)) continue;
         if (messageId) {
           processedMessageIds.add(messageId);
           if (processedMessageIds.size > 500) {
-            const oldestId = processedMessageIds.values().next().value;
-            processedMessageIds.delete(oldestId);
+            processedMessageIds.delete(processedMessageIds.values().next().value);
           }
         }
 
@@ -133,21 +145,20 @@ async function connectWhatsApp() {
         const text = getTextMessage(message);
         if (!text) continue;
 
+        logger.info({
+          messageType: type,
+          fromMe,
+          selfChat: ownChat,
+          chatType: chatId.endsWith('@g.us') ? 'group' : 'private',
+          hasCommandPrefix: text.startsWith(config.prefix)
+        }, 'Incoming WhatsApp message');
+
         try {
-          await handleCommand(
-            sock,
-            message,
-            text,
-            message.key.participant || message.key.remoteJid
-          );
+          await handleCommand(sock, message, text, message.key.participant || chatId);
         } catch (error) {
           logger.error({ error }, 'Command handler failed');
           try {
-            await sock.sendMessage(
-              chatId,
-              { text: 'حدث خطأ أثناء تنفيذ الأمر. حاول مرة أخرى.' },
-              { quoted: message }
-            );
+            await sock.sendMessage(chatId, { text: 'حدث خطأ أثناء تنفيذ الأمر. حاول مرة أخرى.' }, { quoted: message });
           } catch (sendError) {
             logger.error({ sendError }, 'Could not send command error reply');
           }
@@ -162,10 +173,7 @@ async function connectWhatsApp() {
   }
 }
 
-process.on('unhandledRejection', (reason) => {
-  logger.error({ reason }, 'Unhandled promise rejection');
-});
-
+process.on('unhandledRejection', (reason) => logger.error({ reason }, 'Unhandled promise rejection'));
 process.on('uncaughtException', (error) => {
   logger.fatal({ error }, 'Uncaught exception');
   process.exit(1);
@@ -181,10 +189,7 @@ const healthServer = createServer((req, res) => {
   res.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify({ error: 'Not found' }));
 });
-
-healthServer.listen(port, '0.0.0.0', () => {
-  logger.info({ port }, 'HTTP health server listening');
-});
+healthServer.listen(port, '0.0.0.0', () => logger.info({ port }, 'HTTP health server listening'));
 
 logger.info(`Starting ${config.botName}...`);
 connectWhatsApp();
