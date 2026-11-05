@@ -29,18 +29,37 @@ async function connectWhatsApp() {
       getMessage: async () => undefined
     });
 
+    let pairingCodeRequested = false;
+
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', (update) => {
+    sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
-      if (qr) {
+      // Use numeric pairing code when PAIRING_NUMBER is configured.
+      // Otherwise keep the normal QR-code flow.
+      if (qr && !config.pairingNumber) {
         logger.info('A WhatsApp pairing QR was generated. Scan it from Linked devices.');
         qrcode.generate(qr, { small: true });
       }
 
       if (connection === 'connecting') {
         logger.info('Connecting to WhatsApp...');
+
+        if (
+          config.pairingNumber &&
+          !state.creds.registered &&
+          !pairingCodeRequested
+        ) {
+          pairingCodeRequested = true;
+          try {
+            const code = await sock.requestPairingCode(config.pairingNumber);
+            logger.info({ pairingCode: code }, 'WhatsApp pairing code generated. Enter it in Linked devices > Link with phone number.');
+          } catch (error) {
+            pairingCodeRequested = false;
+            logger.error({ error }, 'Could not generate WhatsApp pairing code. Check PAIRING_NUMBER and try again.');
+          }
+        }
       }
 
       if (connection === 'open') {
@@ -120,7 +139,6 @@ process.on('uncaughtException', (error) => {
   logger.fatal({ error }, 'Uncaught exception');
   process.exit(1);
 });
-
 
 const port = Number(process.env.PORT || 3000);
 const healthServer = createServer((req, res) => {
