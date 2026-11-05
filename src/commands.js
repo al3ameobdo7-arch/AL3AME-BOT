@@ -10,18 +10,26 @@ const commandList = [
   ['info', 'Show bot information']
 ];
 
-function makeMenu() {
-  const lines = commandList.map(([name, description]) =>
-    config.prefix + name.padEnd(8) + ' — ' + description
-  );
-
-  return [
-    '╭━━━〔 ' + config.botName + ' 〕━━━╮',
-    '',
-    ...lines,
-    '',
-    '╰━━━━━━━━━━━━━━━━━━━━╯'
-  ].join('\n');
+async function sendMenu(sock, chatId, message) {
+  await sock.sendMessage(chatId, {
+    text: 'مرحبا بك في ' + config.botName + '! 👋\\nاختار الخدمة اللي بغيتي من القائمة:',
+    title: '╭━━〔 AL3AME BOT 〕━━╮',
+    footer: 'AL3AME BOT • اختر أمراً للمتابعة',
+    buttonText: 'عرض الأوامر',
+    sections: [{
+      title: 'الخدمات المتاحة',
+      rows: commandList.map(([name, description]) => ({
+        title: name === 'menu' ? '📋 القائمة الرئيسية'
+          : name === 'ping' ? '🏓 اختبار الاستجابة'
+          : name === 'status' ? '📊 حالة البوت'
+          : name === 'owner' ? '👑 مالك البوت'
+          : name === 'id' ? '🆔 معلومات المحادثة'
+          : 'ℹ️ معلومات البوت',
+        description,
+        rowId: config.prefix + name
+      }))
+    }]
+  }, { quoted: message });
 }
 
 export async function handleCommand(sock, message, text, senderJid) {
@@ -39,7 +47,7 @@ export async function handleCommand(sock, message, text, senderJid) {
   switch (command) {
     case 'menu':
     case 'help':
-      await sock.sendMessage(chatId, { text: makeMenu() }, { quoted: message });
+      await sendMenu(sock, chatId, message);
       break;
 
     case 'ping':
