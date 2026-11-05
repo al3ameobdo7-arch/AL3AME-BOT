@@ -12,17 +12,21 @@ const commandList = [
 
 async function sendMenu(sock, chatId, message) {
   const lines = [
-    `╭━━〔 ${config.botName} 〕━━╮`,
+    '╭━━━〔 ⚡ 𝐀𝐋3𝐀𝐌𝐄 〕━━━╮',
+    '   𓆩 👑 𝐁𝐎𝐓 𝐒𝐘𝐒𝐓𝐄𝐌 𓆪',
     '',
-    'مرحباً بك! 👋 اختار الأمر اللي بغيتي:',
+    '✦ أهـلاً بـك فـي AL3AME ✦',
     '',
-    ...commandList.map(([name, description]) => `• ${config.prefix}${name} — ${description}`),
+    '╰━━━━━━━━━━━━━━━━━━╯',
     '',
+    ...commandList.map(([name]) => `◈ ${name === 'menu' ? '⚡' : name === 'ping' ? '🚀' : name === 'status' ? '📡' : name === 'owner' ? '👑' : name === 'id' ? '🆔' : '💠'}  ${config.prefix}${name}`),
+    '',
+    '╭━━━━━━━━━━━━━━━━━━╮',
+    '𖤍 𝐏𝐎𝐖𝐄𝐑𝐄𝐃 𝐁𝐘',
+    '𝐀𝐋3𝐀𝐌𝐄 ⚡',
     '╰━━━━━━━━━━━━━━━━━━╯'
   ];
 
-  // Plain text is the compatibility baseline: it works even when WhatsApp
-  // clients hide or do not support legacy interactive list messages.
   await sock.sendMessage(chatId, { text: lines.join('\n') }, { quoted: message });
 }
 
