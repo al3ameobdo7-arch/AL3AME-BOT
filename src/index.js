@@ -1,7 +1,8 @@
 import { createServer } from 'node:http';
 import makeWASocket, {
   DisconnectReason,
-  useMultiFileAuthState
+  useMultiFileAuthState,
+  areJidsSameUser
 } from '@whiskeysockets/baileys';
 import qrcode from 'qrcode-terminal';
 import { Boom } from '@hapi/boom';
@@ -93,9 +94,19 @@ async function connectWhatsApp() {
       if (type !== 'notify') return;
 
       for (const message of messages) {
-        if (!message.message || message.key.fromMe) continue;
+        if (!message.message) continue;
 
         const chatId = message.key.remoteJid;
+        const isSelfChat =
+          Boolean(message.key.fromMe) &&
+          Boolean(sock.user?.id) &&
+          areJidsSameUser(chatId, sock.user.id);
+
+        // Ignore messages sent by this account in every chat except its own
+        // "Message yourself" conversation. This lets the owner run commands
+        // from the linked WhatsApp account without enabling replies in groups
+        // or other chats where the bot itself sent a message.
+        if (message.key.fromMe && !isSelfChat) continue;
         if (!chatId || chatId === 'status@broadcast') continue;
 
         const text = getTextMessage(message);
