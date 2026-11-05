@@ -102,12 +102,31 @@ async function connectWhatsApp() {
           Boolean(sock.user?.id) &&
           areJidsSameUser(chatId, sock.user.id);
 
-        // Ignore messages sent by this account in every chat except its own
-        // "Message yourself" conversation. This lets the owner run commands
-        // from the linked WhatsApp account without enabling replies in groups
-        // or other chats where the bot itself sent a message.
+        // Only handle this account's own messages in the dedicated self-chat.
+        // Baileys can emit those as "append", so accept recent self-chat appends
+        // while ignoring old history entries and all appends from other chats.
         if (message.key.fromMe && !isSelfChat) continue;
+        if (type === 'append' && !isSelfChat) continue;
         if (!chatId || chatId === 'status@broadcast') continue;
+
+        const messageId = message.key.id;
+        if (messageId && processedMessageIds.has(messageId)) continue;
+        if (messageId) {
+          processedMessageIds.add(messageId);
+          if (processedMessageIds.size > 500) {
+            const oldestId = processedMessageIds.values().next().value;
+            processedMessageIds.delete(oldestId);
+          }
+        }
+
+        if (type === 'append') {
+          const rawTimestamp = message.messageTimestamp;
+          const timestamp = typeof rawTimestamp?.toNumber === 'function'
+            ? rawTimestamp.toNumber()
+            : Number(rawTimestamp || 0);
+          const ageSeconds = Math.floor(Date.now() / 1000) - timestamp;
+          if (!timestamp || ageSeconds < -30 || ageSeconds > 90) continue;
+        }
 
         const text = getTextMessage(message);
         if (!text) continue;
