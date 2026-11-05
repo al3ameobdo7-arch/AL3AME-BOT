@@ -33,17 +33,32 @@ async function resolvePnJid(sock, jid) {
   }
 }
 
-async function isOwnChat(sock, chatId) {
-  const ownIds = [sock.user?.id, sock.user?.lid].filter(Boolean).map(cleanJid);
-  const chat = cleanJid(chatId);
-  if (ownIds.some((jid) => areJidsSameUser(chat, jid))) return true;
+// A self-chat can expose the same account as PN in remoteJid and LID in
+// remoteJidAlt (or the reverse). Compare both forms before rejecting fromMe.
+async function isOwnChat(sock, messageKey = {}) {
+  const ownIds = [sock.user?.id, sock.user?.lid]
+    .filter(Boolean)
+    .map(cleanJid);
+  const chatIds = [messageKey.remoteJid, messageKey.remoteJidAlt]
+    .filter(Boolean)
+    .map(cleanJid);
 
-  const [chatResolved, ...ownResolved] = await Promise.all([
-    resolvePnJid(sock, chat),
+  if (!ownIds.length || !chatIds.length) return false;
+
+  if (chatIds.some((chat) =>
+    ownIds.some((own) => areJidsSameUser(chat, own))
+  )) return true;
+
+  const resolved = await Promise.all([
+    ...chatIds.map((jid) => resolvePnJid(sock, jid)),
     ...ownIds.map((jid) => resolvePnJid(sock, jid))
   ]);
+  const resolvedChats = resolved.slice(0, chatIds.length);
+  const resolvedOwn = resolved.slice(chatIds.length);
 
-  return ownResolved.some((jid) => areJidsSameUser(chatResolved, jid));
+  return resolvedChats.some((chat) =>
+    resolvedOwn.some((own) => areJidsSameUser(chat, own))
+  );
 }
 
 async function connectWhatsApp() {
@@ -117,10 +132,17 @@ async function connectWhatsApp() {
         if (!chatId || chatId === 'status@broadcast') continue;
 
         const fromMe = Boolean(message.key.fromMe);
-        const ownChat = fromMe ? await isOwnChat(sock, chatId) : false;
+        const ownChat = fromMe ? await isOwnChat(sock, message.key) : false;
 
         // Never execute sent messages in another person's chat.
-        if (fromMe && !ownChat) continue;
+        if (fromMe && !ownChat) {
+          logger.debug({
+            messageType: type,
+            remoteJidType: String(chatId).split('@')[1] || 'unknown',
+            remoteJidAltType: String(message.key.remoteJidAlt || '').split('@')[1] || 'none'
+          }, 'Ignoring outgoing message outside the bot self-chat');
+          continue;
+        }
         // WhatsApp may emit self-chat outgoing messages as append events.
         if (type === 'append' && !ownChat) continue;
 
