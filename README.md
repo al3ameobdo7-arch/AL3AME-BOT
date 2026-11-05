@@ -2,39 +2,39 @@
 
 AL3AME BOT is a WhatsApp automation worker built with Node.js 20+ and Baileys.
 
-## Current features (v1.1.0)
-- WhatsApp QR pairing
+## Current features (v1.2.0)
+- WhatsApp pairing by QR code or numeric pairing code
 - Multi-file authentication state
+- Configurable authentication directory for persistent storage
 - Automatic reconnect after temporary disconnections
 - Commands: `.menu`, `.ping`, `.status`, `.owner`, `.id`, `.info`
 - Common message wrapper and caption text extraction
 - Structured logs with Pino
 - Basic automated tests for message utilities
 
-## Deploy on Render (recommended setup)
+## Deploy on Railway
 
-This repository includes a `render.yaml` Blueprint for a **Background Worker** with a persistent disk.
-
-1. Sign in to Render and choose **New > Blueprint**.
-2. Connect GitHub and select `al3ameobdo7-arch/AL3AME-BOT`.
-3. Render reads `render.yaml`. Review the worker and disk settings, then apply.
-4. Open the created worker and go to **Environment**.
-5. Set `OWNER_NUMBER` to your WhatsApp number in international digits only (example format: `2126XXXXXXXX`).
-6. Confirm these values exist:
+1. Connect this GitHub repository to a Railway service.
+2. In the service, open **Settings > Volumes** and create a volume mounted at `/data`.
+3. In **Variables**, set:
    - `BOT_NAME=AL3AME BOT`
    - `PREFIX=.`
-   - `AUTH_DIR=/var/data/auth_info_baileys`
+   - `AUTH_DIR=/data/auth_info_baileys`
    - `LOG_LEVEL=info`
-7. Save and deploy. Open **Logs** for the worker and scan the QR code using WhatsApp > Linked devices > Link a device.
+   - `OWNER_NUMBER` to the owner's full international number using digits only.
+4. To pair with a numeric code, set `PAIRING_NUMBER` to the WhatsApp number you want to link, in international digits only (for Morocco, for example, `2126XXXXXXXX`; do not include `+` or spaces).
+5. Deploy/restart the service and open **Deployments > View Logs**. A numeric pairing code should appear in the logs.
+6. On the phone with that WhatsApp account, open **WhatsApp > Settings > Linked devices > Link a device > Link with phone number instead**, then enter the code shown in Railway logs.
+7. After the account is linked, remove the `PAIRING_NUMBER` variable from Railway and redeploy. Keep `AUTH_DIR` pointing to the mounted volume so the saved session is reused.
 
-**Important:** Persistent disks require a paid Render service. The disk in this Blueprint is mounted at `/var/data`; the bot's WhatsApp session is stored at `/var/data/auth_info_baileys`. Do not remove the disk or change `AUTH_DIR` after pairing unless you intend to create a new session.
+**Security:** Treat the pairing code like a password. Do not share it or post it in screenshots. Only request a code for your own WhatsApp account. Do not delete the volume or its authentication folder after pairing unless you intend to link the account again.
 
 ## Run locally
 
 1. Install Node.js 20 or later.
 2. Clone or download this repository.
 3. Copy `.env.example` to `.env`.
-4. Set `OWNER_NUMBER` to the owner's full international number using digits only.
+4. Set `OWNER_NUMBER`, and optionally `PAIRING_NUMBER`, using international digits only.
 5. Install and run:
 
 ```bash
@@ -43,7 +43,7 @@ npm test
 npm start
 ```
 
-6. Scan the QR code using WhatsApp > Linked devices > Link a device.
+If `PAIRING_NUMBER` is empty, the bot uses QR pairing. If it is set, the bot requests a numeric pairing code.
 
 ## Commands
 
@@ -51,7 +51,7 @@ npm start
 |---|---|
 | `.menu` | List commands |
 | `.ping` | Check bot response |
-| `.status` | Show uptime and memory usage |
+| `.status` | Show runtime status |
 | `.owner` | Mention the configured owner |
 | `.id` | Show the current chat ID and type |
 | `.info` | Show bot information |
@@ -60,8 +60,8 @@ Change the command prefix with the `PREFIX` environment variable.
 
 ## Security and limitations
 
-- Keep `.env`, QR codes, and `auth_info_baileys/` private.
-- Never paste WhatsApp session files or QR codes into GitHub, chat, or public logs.
+- Keep `.env`, pairing codes, QR codes, and authentication files private.
+- Never paste WhatsApp session files or pairing codes into GitHub, chat, or public logs.
 - Do not use the bot for spam or unsolicited bulk messaging.
 - Baileys is an unofficial WhatsApp Web client, is not affiliated with WhatsApp, and may carry account or service risks. Follow WhatsApp's terms.
 - This is an MVP foundation, not a production-certified service. Test pairing, reconnects, and persistent storage before relying on it.
