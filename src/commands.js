@@ -12,7 +12,7 @@ const commandList = [
 
 async function sendMenu(sock, chatId, message) {
   await sock.sendMessage(chatId, {
-    text: 'مرحبا بك في ' + config.botName + '! 👋\\nاختار الخدمة اللي بغيتي من القائمة:',
+    text: 'مرحبا بك في ' + config.botName + '! 👋\nاختار الخدمة اللي بغيتي من القائمة:',
     title: '╭━━〔 AL3AME BOT 〕━━╮',
     footer: 'AL3AME BOT • اختر أمراً للمتابعة',
     buttonText: 'عرض الأوامر',
