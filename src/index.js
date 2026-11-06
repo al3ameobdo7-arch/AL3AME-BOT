@@ -35,8 +35,8 @@ async function resolvePnJid(sock, jid) {
 
 // A self-chat can expose the same account as PN in remoteJid and LID in
 // remoteJidAlt (or the reverse). Compare both forms before rejecting fromMe.
-async function isOwnChat(sock, messageKey = {}) {
-  const ownIds = [sock.user?.id, sock.user?.lid]
+async function isOwnChat(sock, messageKey = {}, credentialsLid) {
+  const ownIds = [sock.user?.id, sock.user?.lid, credentialsLid]
     .filter(Boolean)
     .map(cleanJid);
   const chatIds = [messageKey.remoteJid, messageKey.remoteJidAlt]
@@ -146,7 +146,7 @@ async function connectWhatsApp() {
         if (!message.message) continue;
         if (!chatId || chatId === 'status@broadcast') continue;
 
-        const ownChat = fromMe ? await isOwnChat(sock, message.key) : false;
+        const ownChat = fromMe ? await isOwnChat(sock, message.key, state.creds.me?.lid) : false;
 
         if (fromMe) {
           logger.info({
@@ -155,11 +155,11 @@ async function connectWhatsApp() {
             remoteJidType: String(message.key.remoteJid || '').split('@')[1] || 'none',
             remoteJidAltType: String(message.key.remoteJidAlt || '').split('@')[1] || 'none',
             ownJidType: String(sock.user?.id || '').split('@')[1] || 'none',
-            ownLidType: String(sock.user?.lid || '').split('@')[1] || 'none',
+            ownLidType: String(sock.user?.lid || state.creds.me?.lid || '').split('@')[1] || 'none',
             hasRemoteJid: Boolean(message.key.remoteJid),
             hasRemoteJidAlt: Boolean(message.key.remoteJidAlt),
             hasOwnJid: Boolean(sock.user?.id),
-            hasOwnLid: Boolean(sock.user?.lid)
+            hasOwnLid: Boolean(sock.user?.lid || state.creds.me?.lid)
           }, 'Self-chat identity comparison');
         }
 
