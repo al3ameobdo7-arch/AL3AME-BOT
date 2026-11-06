@@ -44,3 +44,49 @@ test('.ping replies with pong', async () => {
   await handleCommand(sock, message, '.ping', '212600000000@s.whatsapp.net');
   assert.match(sent[0][1].text, /Pong/);
 });
+
+
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createConversationStore } from '../src/conversation-store.js';
+
+test('AI conversation memory is isolated per WhatsApp user', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'al3ame-ai-'));
+  try {
+    const store = createConversationStore(join(dir, 'state.json'));
+    await store.saveTurn('user-A', 'My name is Ali', 'Nice to meet you, Ali.');
+    assert.equal((await store.getHistory('user-A')).length, 2);
+    assert.equal((await store.getHistory('user-B')).length, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('AI memory persists across store instances and can be cleared', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'al3ame-ai-'));
+  try {
+    const path = join(dir, 'state.json');
+    const first = createConversationStore(path);
+    await first.saveTurn('user-A', 'Remember this', 'I will remember it in this chat.');
+    const second = createConversationStore(path);
+    assert.equal((await second.getHistory('user-A')).length, 2);
+    await second.clearHistory('user-A');
+    assert.equal((await second.getHistory('user-A')).length, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('AI daily usage is tracked independently for each user', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'al3ame-ai-'));
+  try {
+    const store = createConversationStore(join(dir, 'state.json'));
+    await store.incrementUsage('user-A', '2026-11-06');
+    assert.equal(await store.getUsage('user-A', '2026-11-06'), 1);
+    assert.equal(await store.getUsage('user-B', '2026-11-06'), 0);
+    assert.equal(await store.getUsage('user-A', '2026-11-07'), 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
