@@ -127,11 +127,25 @@ async function connectWhatsApp() {
       if (type !== 'notify' && type !== 'append') return;
 
       for (const message of messages) {
+        const chatId = message.key?.remoteJid;
+        const fromMe = Boolean(message.key?.fromMe);
+        const diagnosticText = message.message ? getTextMessage(message) : '';
+
+        // Temporary diagnostics: log message routing metadata, never message text or full phone identifiers.
+        logger.info({
+          messageType: type,
+          fromMe,
+          hasMessagePayload: Boolean(message.message),
+          hasText: Boolean(diagnosticText),
+          hasCommandPrefix: Boolean(diagnosticText && diagnosticText.startsWith(config.prefix)),
+          remoteJidType: String(chatId || '').split('@')[1] || 'none',
+          remoteJidAltType: String(message.key?.remoteJidAlt || '').split('@')[1] || 'none',
+          participantType: String(message.key?.participant || '').split('@')[1] || 'none'
+        }, 'WhatsApp message event diagnostic');
+
         if (!message.message) continue;
-        const chatId = message.key.remoteJid;
         if (!chatId || chatId === 'status@broadcast') continue;
 
-        const fromMe = Boolean(message.key.fromMe);
         const ownChat = fromMe ? await isOwnChat(sock, message.key) : false;
 
         // Never execute sent messages in another person's chat.
@@ -164,7 +178,7 @@ async function connectWhatsApp() {
           if (!timestamp || ageSeconds < -30 || ageSeconds > 90) continue;
         }
 
-        const text = getTextMessage(message);
+        const text = diagnosticText;
         if (!text) continue;
 
         logger.info({
