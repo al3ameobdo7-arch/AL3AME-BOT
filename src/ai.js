@@ -33,26 +33,31 @@ function extractOutput(data) {
   return parts.join('\n').trim();
 }
 
+// Groq Responses API is OpenAI-compatible. Keep the full conversation in our
+// own persistent store; Groq does not need (or support) OpenAI's store flag.
+export function buildGroqPayload(history, prompt, model = config.groqModel) {
+  return {
+    model,
+    instructions: SYSTEM_INSTRUCTIONS,
+    input: [...history, { role: 'user', content: prompt }],
+    max_output_tokens: 900
+  };
+}
+
 async function requestAI(history, prompt) {
-  const response = await fetch('https://api.openai.com/v1/responses', {
+  const response = await fetch('https://api.groq.com/openai/v1/responses', {
     method: 'POST',
     headers: {
-      authorization: 'Bearer ' + config.openaiApiKey,
+      authorization: 'Bearer ' + config.groqApiKey,
       'content-type': 'application/json'
     },
-    body: JSON.stringify({
-      model: config.openaiModel,
-      instructions: SYSTEM_INSTRUCTIONS,
-      input: [...history, { role: 'user', content: prompt }],
-      max_output_tokens: 900,
-      store: false
-    }),
+    body: JSON.stringify(buildGroqPayload(history, prompt)),
     signal: AbortSignal.timeout(45000)
   });
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(data.error?.message || 'OpenAI API request failed');
+    const error = new Error(data.error?.message || 'Groq API request failed');
     error.status = response.status;
     throw error;
   }
@@ -79,9 +84,9 @@ export async function handleAiCommand(sock, message, text, senderJid) {
     return;
   }
 
-  if (!config.openaiApiKey) {
+  if (!config.groqApiKey) {
     await sock.sendMessage(chatId, {
-      text: '⚙️ خدمة الذكاء الاصطناعي لم تُفعّل بعد. خاص المطور يضيف OPENAI_API_KEY في Railway Variables.'
+      text: '⚙️ خدمة الذكاء الاصطناعي لم تُفعّل بعد. خاص المطور يضيف GROQ_API_KEY في Railway Variables.'
     }, { quoted: message });
     return;
   }
