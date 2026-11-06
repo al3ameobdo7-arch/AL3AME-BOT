@@ -7,7 +7,10 @@ AL3AME BOT is a WhatsApp automation worker built with Node.js 20+ and Baileys.
 - Multi-file authentication state
 - Configurable authentication directory for persistent storage
 - Automatic reconnect after temporary disconnections
-- Commands: `.menu`, `.ping`, `.status`, `.owner`, `.id`, `.info`
+- Commands: `.menu`, `.ai`, `.ask`, `.resetai`, `.ping`, `.status`, `.owner`, `.id`, `.info`
+- OpenAI Responses API integration with independent, persistent memory per private WhatsApp user
+- Per-user daily AI usage limit (default: 20 requests)
+- AI conversation data stored separately from WhatsApp authentication
 - Common message wrapper and caption text extraction
 - Structured logs with Pino
 - Basic automated tests for message utilities
@@ -21,6 +24,10 @@ AL3AME BOT is a WhatsApp automation worker built with Node.js 20+ and Baileys.
    - `PREFIX=.`
    - `AUTH_DIR=/data/auth_info_baileys`
    - `LOG_LEVEL=info`
+   - `OPENAI_API_KEY` to enable real AI replies (create/manage the key in your OpenAI Platform account; never commit it to GitHub)
+   - `OPENAI_MODEL=gpt-4.1-mini` (optional; can be changed to a model available to your API project)
+   - `AI_DAILY_LIMIT=20` (optional per-user daily limit)
+   - `AI_DATA_FILE=/data/al3ame-ai-state.json` (persistent AI memory on the Railway volume)
    - `OWNER_NUMBER` to the owner's full international number using digits only.
 4. To pair with a numeric code, set `PAIRING_NUMBER` to the WhatsApp number you want to link, in international digits only (for Morocco, for example, `2126XXXXXXXX`; do not include `+` or spaces).
 5. Deploy/restart the service and open **Deployments > View Logs**. A numeric pairing code should appear in the logs.
@@ -50,6 +57,9 @@ If `PAIRING_NUMBER` is empty, the bot uses QR pairing. If it is set, the bot req
 | Command | Description |
 |---|---|
 | `.menu` | List commands |
+| `.ai your question` | Ask AL3AME AI; follow-up turns use your private conversation memory |
+| `.ask your question` | Alias for `.ai` |
+| `.resetai` | Clear only your own AI conversation memory |
 | `.ping` | Check bot response |
 | `.status` | Show runtime status |
 | `.owner` | Mention the configured owner |
@@ -65,4 +75,6 @@ Change the command prefix with the `PREFIX` environment variable.
 - Do not use the bot for spam or unsolicited bulk messaging.
 - Baileys is an unofficial WhatsApp Web client, is not affiliated with WhatsApp, and may carry account or service risks. Follow WhatsApp's terms.
 - This is an MVP foundation, not a production-certified service. Test pairing, reconnects, and persistent storage before relying on it.
-- AI integration, plugin management, database features, and a protected web dashboard are not included yet.
+- Sticker creation, social/video downloads, a protected web dashboard, and admin analytics are planned for later phases and are not included yet.
+- AI is opt-in by command (`.ai` / `.ask`) rather than automatically answering every message. AI currently works in private chats only.
+- AI memory is keyed by a one-way SHA-256 hash of the sender JID and stored on the configured data volume. Users can clear their own memory with `.resetai`. Keep the volume private and configure backups/access appropriately.

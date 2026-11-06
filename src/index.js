@@ -131,37 +131,10 @@ async function connectWhatsApp() {
         const fromMe = Boolean(message.key?.fromMe);
         const diagnosticText = message.message ? getTextMessage(message) : '';
 
-        // Temporary diagnostics: log message routing metadata, never message text or full phone identifiers.
-        logger.info({
-          messageType: type,
-          fromMe,
-          hasMessagePayload: Boolean(message.message),
-          hasText: Boolean(diagnosticText),
-          hasCommandPrefix: Boolean(diagnosticText && diagnosticText.startsWith(config.prefix)),
-          remoteJidType: String(chatId || '').split('@')[1] || 'none',
-          remoteJidAltType: String(message.key?.remoteJidAlt || '').split('@')[1] || 'none',
-          participantType: String(message.key?.participant || '').split('@')[1] || 'none'
-        }, 'WhatsApp message event diagnostic');
-
         if (!message.message) continue;
         if (!chatId || chatId === 'status@broadcast') continue;
 
         const ownChat = fromMe ? await isOwnChat(sock, message.key, state.creds.me?.lid) : false;
-
-        if (fromMe) {
-          logger.info({
-            messageType: type,
-            selfChat: ownChat,
-            remoteJidType: String(message.key.remoteJid || '').split('@')[1] || 'none',
-            remoteJidAltType: String(message.key.remoteJidAlt || '').split('@')[1] || 'none',
-            ownJidType: String(sock.user?.id || '').split('@')[1] || 'none',
-            ownLidType: String(sock.user?.lid || state.creds.me?.lid || '').split('@')[1] || 'none',
-            hasRemoteJid: Boolean(message.key.remoteJid),
-            hasRemoteJidAlt: Boolean(message.key.remoteJidAlt),
-            hasOwnJid: Boolean(sock.user?.id),
-            hasOwnLid: Boolean(sock.user?.lid || state.creds.me?.lid)
-          }, 'Self-chat identity comparison');
-        }
 
         // Never execute sent messages in another person's chat.
         if (fromMe && !ownChat) {

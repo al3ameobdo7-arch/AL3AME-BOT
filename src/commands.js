@@ -1,8 +1,12 @@
 import { config } from './config.js';
 import { getSenderNumber, isGroupJid } from './utils.js';
+import { handleAiCommand, resetAiMemory } from './ai.js';
 
 const commandList = [
   ['menu', 'القائمة الرئيسية'],
+  ['ai', 'محادثة الذكاء الاصطناعي بذاكرة مستقلة'],
+  ['ask', 'طرح سؤال على AL3AME AI'],
+  ['resetai', 'مسح ذاكرة محادثتك مع AI'],
   ['ping', 'اختبار استجابة البوت'],
   ['status', 'حالة التشغيل والذاكرة'],
   ['owner', 'معلومات مالك البوت'],
@@ -19,7 +23,7 @@ async function sendMenu(sock, chatId, message) {
     '',
     '╰━━━━━━━━━━━━━━━━━━╯',
     '',
-    ...commandList.map(([name]) => `◈ ${name === 'menu' ? '⚡' : name === 'ping' ? '🚀' : name === 'status' ? '📡' : name === 'owner' ? '👑' : name === 'id' ? '🆔' : '💠'}  ${config.prefix}${name}`),
+    ...commandList.map(([name]) => `◈ ${({ menu: '⚡', ai: '🤖', ask: '🧠', resetai: '🧹', ping: '🚀', status: '📡', owner: '👑', id: '🆔', info: '💠' })[name] || '•'}  ${config.prefix}${name}`),
     '',
     '╭━━━━━━━━━━━━━━━━━━╮',
     '𖤍 𝐏𝐎𝐖𝐄𝐑𝐄𝐃 𝐁𝐘',
@@ -41,6 +45,16 @@ export async function handleCommand(sock, message, text, senderJid) {
   const command = rawCommand.toLowerCase();
   const chatId = message.key.remoteJid;
   const senderNumber = getSenderNumber(senderJid || message.key.participant || chatId);
+
+  if (command === 'ai' || command === 'ask') {
+    await handleAiCommand(sock, message, text, senderJid || chatId);
+    return;
+  }
+
+  if (command === 'resetai') {
+    await resetAiMemory(sock, message, senderJid || chatId);
+    return;
+  }
 
   switch (command) {
     case 'menu':
@@ -87,7 +101,7 @@ export async function handleCommand(sock, message, text, senderJid) {
 
     case 'info':
       await sock.sendMessage(chatId, {
-        text: ['🤖 ' + config.botName, 'Version: 1.2.0', 'Runtime: Node.js',
+        text: ['🤖 ' + config.botName, 'Version: 1.3.0', 'Runtime: Node.js',
           'WhatsApp library: Baileys', 'Sender: ' + (senderNumber || 'Unknown')].join('\n')
       }, { quoted: message });
       break;
