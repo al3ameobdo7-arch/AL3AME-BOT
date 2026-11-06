@@ -90,3 +90,21 @@ test('AI daily usage is tracked independently for each user', async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+
+import { buildGroqPayload } from '../src/ai.js';
+
+test('Groq payload preserves per-user conversation context without unsupported storage flags', () => {
+  const history = [
+    { role: 'user', content: 'My name is Ali' },
+    { role: 'assistant', content: 'Nice to meet you, Ali.' }
+  ];
+  const payload = buildGroqPayload(history, 'What is my name?', 'openai/gpt-oss-20b');
+  assert.equal(payload.model, 'openai/gpt-oss-20b');
+  assert.deepEqual(payload.input, [
+    ...history,
+    { role: 'user', content: 'What is my name?' }
+  ]);
+  assert.equal(payload.max_output_tokens, 900);
+  assert.equal(Object.hasOwn(payload, 'store'), false);
+});
