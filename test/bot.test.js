@@ -46,7 +46,7 @@ test('.ping replies with pong', async () => {
 });
 
 
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createConversationStore } from '../src/conversation-store.js';
