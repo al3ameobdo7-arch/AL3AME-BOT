@@ -148,6 +148,21 @@ async function connectWhatsApp() {
 
         const ownChat = fromMe ? await isOwnChat(sock, message.key) : false;
 
+        if (fromMe) {
+          logger.info({
+            messageType: type,
+            selfChat: ownChat,
+            remoteJidType: String(message.key.remoteJid || '').split('@')[1] || 'none',
+            remoteJidAltType: String(message.key.remoteJidAlt || '').split('@')[1] || 'none',
+            ownJidType: String(sock.user?.id || '').split('@')[1] || 'none',
+            ownLidType: String(sock.user?.lid || '').split('@')[1] || 'none',
+            hasRemoteJid: Boolean(message.key.remoteJid),
+            hasRemoteJidAlt: Boolean(message.key.remoteJidAlt),
+            hasOwnJid: Boolean(sock.user?.id),
+            hasOwnLid: Boolean(sock.user?.lid)
+          }, 'Self-chat identity comparison');
+        }
+
         // Never execute sent messages in another person's chat.
         if (fromMe && !ownChat) {
           logger.debug({
