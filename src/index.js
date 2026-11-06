@@ -149,8 +149,17 @@ async function connectWhatsApp() {
         const ownChat = fromMe ? await isOwnChat(sock, message.key, state.creds.me?.lid) : false;
 
         if (fromMe) {
+          const ownLid = cleanJid(sock.user?.lid || state.creds.me?.lid || '');
+          const chatLid = cleanJid(message.key.remoteJid || '');
+          const ownPn = cleanJid(sock.user?.id || '');
+          const chatPn = cleanJid(message.key.remoteJidAlt || '');
           logger.info({
             messageType: type,
+            exactLidMatch: Boolean(ownLid && chatLid && ownLid === chatLid),
+            areLidsSameUser: Boolean(ownLid && chatLid && areJidsSameUser(ownLid, chatLid)),
+            exactPnMatch: Boolean(ownPn && chatPn && ownPn === chatPn),
+            arePnsSameUser: Boolean(ownPn && chatPn && areJidsSameUser(ownPn, chatPn)),
+            lidMappingAvailable: Boolean(sock.signalRepository?.lidMapping?.getPNForLID),
             selfChat: ownChat,
             remoteJidType: String(message.key.remoteJid || '').split('@')[1] || 'none',
             remoteJidAltType: String(message.key.remoteJidAlt || '').split('@')[1] || 'none',
