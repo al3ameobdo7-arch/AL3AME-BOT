@@ -64,7 +64,8 @@ async function requestAI(history, prompt) {
 
 export async function handleAiCommand(sock, message, text, senderJid) {
   const chatId = message.key.remoteJid;
-  const input = text.replace(/^\.(?:ai|ask)\b/i, '').trim();
+  const commandAndPrompt = text.slice(config.prefix.length).trim();
+  const input = commandAndPrompt.replace(/^(?:ai|ask)\b/i, '').trim();
 
   if (isGroupJid(chatId)) {
     await sock.sendMessage(chatId, { text: '🤖 خدمة AL3AME AI متاحة حالياً في المحادثات الخاصة فقط.' }, { quoted: message });
